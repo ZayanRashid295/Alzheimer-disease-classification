@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alzheimer MRI Classifier</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #f8fafc; }
+    .sub { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .upload-area {
+      border: 2px dashed #475569;
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      background: #1e293b;
+    }
+    .upload-area.dragover { border-color: #38bdf8; background: #1e3a5f; }
+    input[type="file"] { display: none; }
+    .btn {
+      display: inline-block;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.95rem;
+      cursor: pointer;
+      margin: 0.25rem;
+    }
+    .btn-choose { background: #334155; color: #f8fafc; }
+    .btn-choose:hover { background: #475569; }
+    .btn-model1 { background: #0ea5e9; color: #fff; }
+    .btn-model1:hover { background: #0284c7; }
+    .btn-model2 { background: #8b5cf6; color: #fff; }
+    .btn-model2:hover { background: #7c3aed; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .preview { margin-top: 1rem; }
+    .preview img { max-width: 100%; max-height: 240px; border-radius: 8px; }
+    .result {
+      margin-top: 1.5rem;
+      padding: 1.25rem;
+      border-radius: 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    .result h3 { margin: 0 0 0.75rem 0; font-size: 1rem; color: #94a3b8; }
+    .result .class { font-size: 1.25rem; font-weight: 600; color: #38bdf8; }
+    .result .confidence { color: #86efac; margin-top: 0.25rem; }
+    .probs { margin-top: 1rem; }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      gap: 0.75rem;
+    }
+    .prob-label { width: 140px; font-size: 0.9rem; }
+    .prob-bar {
+      flex: 1;
+      height: 20px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .prob-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .prob-pct { width: 48px; text-align: right; font-size: 0.9rem; color: #94a3b8; }
+    .error { color: #f87171; margin-top: 1rem; }
+    .which-model { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Alzheimer MRI Classifier</h1>
+  <p class="sub">Upload an MRI image and run prediction with Model 1 or Model 2.</p>
+
+  <div class="upload-area" id="uploadArea">
+    <p style="margin:0 0 0.75rem 0;">Drop an image here or click to choose</p>
+    <button type="button" class="btn btn-choose" id="chooseBtn">Choose image</button>
+    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff" />
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <p style="margin-bottom:0.5rem; color: #94a3b8;">Predict with:</p>
+  <button type="button" class="btn btn-model1" id="btnModel1" disabled>Model 1 (best_model.pt)</button>
+  <button type="button" class="btn btn-model2" id="btnModel2" disabled>Model 2 (timestamped)</button>
+
+  <div class="result" id="result" style="display: none;"></div>
+  <div class="error" id="error" style="display: none;"></div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const chooseBtn = document.getElementById('chooseBtn');
+    const preview = document.getElementById('preview');
+    const btnModel1 = document.getElementById('btnModel1');
+    const btnModel2 = document.getElementById('btnModel2');
+    const resultEl = document.getElementById('result');
+    const errorEl = document.getElementById('error');
+
+    let selectedFile = null;
+
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      selectedFile = file;
+      preview.innerHTML = '<img src="' + URL.createObjectURL(file) + '" alt="Preview" />';
+      btnModel1.disabled = false;
+      btnModel2.disabled = false;
+      resultEl.style.display = 'none';
+      errorEl.style.display = 'none';
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.style.display = 'block';
+      resultEl.style.display = 'none';
+    }
+
+    function showResult(data, modelLabel) {
+      errorEl.style.display = 'none';
+      let html = '<h3>Prediction</h3>';
+      html += '<div class="class">' + data.predicted_class + '</div>';
+      html += '<div class="confidence">Confidence: ' + (data.confidence * 100).toFixed(2) + '%</div>';
+      html += '<div class="which-model">' + modelLabel + '</div>';
+      html += '<div class="probs">';
+      for (const [name, pct] of Object.entries(data.probabilities)) {
+        const p = (pct * 100).toFixed(1);
+        html += '<div class="prob-row"><span class="prob-label">' + name + '</span><div class="prob-bar"><div class="prob-fill" style="width:' + p + '%"></div></div><span class="prob-pct">' + p + '%</span></div>';
+      }
+      html += '</div>';
+      resultEl.innerHTML = html;
+      resultEl.style.display = 'block';
+    }
+
+    function predict(endpoint, modelLabel) {
+      if (!selectedFile) { showError('Please choose an image first.'); return; }
+      btnModel1.disabled = true;
+      btnModel2.disabled = true;
+      const form = new FormData();
+      form.append('image', selectedFile);
+      fetch(endpoint, { method: 'POST', body: form })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { showError(data.error); return; }
+          showResult(data, modelLabel);
+        })
+        .catch(err => showError('Request failed: ' + err.message))
+        .finally(() => { btnModel1.disabled = false; btnModel2.disabled = false; });
+    }
+
+    btnModel1.addEventListener('click', () => predict('/api/predict/model1', 'Model 1 (best_model.pt)'));
+    btnModel2.addEventListener('click', () => predict('/api/predict/model2', 'Model 2 (best_model_20260307_141516.pt)'));
+  </script>
+</body>
+</html>

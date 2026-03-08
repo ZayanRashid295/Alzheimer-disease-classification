@@ -68,6 +68,52 @@ python alzheimer_classifier/evaluate.py --checkpoint outputs/checkpoints/best_mo
 
 Writes to `outputs/eval_plots/`: confusion matrix, ROC (OvR), classification report.
 
+**Compare both checkpoints on the test set:**
+
+```bash
+python alzheimer_classifier/evaluate_both_models.py
+```
+
+Prints accuracy, precision, recall, F1, ROC-AUC and per-class recall for Model 1 (`best_model.pt`) and Model 2 (`best_model_20260307_141516.pt`) and a side-by-side comparison.
+
+**Bulk test (all images in `data/test/`, all classes):**
+
+```bash
+python alzheimer_classifier/bulk_test.py [--model model1|model2|both]
+```
+
+- Runs every test image through the chosen model(s). Default: `--model both`.
+- Prints overall and per-class accuracy, recall, F1, classification report, and confusion matrix.
+- Writes CSV(s) to `outputs/bulk_test/bulk_test_model1.csv` and/or `bulk_test_model2.csv` with columns: `path`, `true_class`, `predicted_class`, `correct`, `confidence`, `prob_<Class>` for each class.
+
+**Test on archive dataset (Augmented + Original):**
+
+If you have the archive at `alzheimer_classifier/archive (1)/` with subfolders `AugmentedAlzheimerDataset` and `OriginalDataset` (each with class subfolders: NonDemented, VeryMildDemented, MildDemented, ModerateDemented):
+
+```bash
+python alzheimer_classifier/test_archive.py [--archive-root "alzheimer_classifier/archive (1)"]
+```
+
+- Runs all images in **AugmentedAlzheimerDataset** and **OriginalDataset** through model1 and model2.
+- Prints metrics (accuracy, precision, recall, F1, per-class recall, classification report, confusion matrix) for each (dataset, model).
+- Writes CSVs to `outputs/archive_test/`: `AugmentedAlzheimerDataset_model1.csv`, `AugmentedAlzheimerDataset_model2.csv`, `OriginalDataset_model1.csv`, `OriginalDataset_model2.csv`.
+- Use `--model model1` or `--model model2` to run only one model.
+
+## Web UI and API
+
+Run the Flask app to get a browser UI and two prediction endpoints (one per model):
+
+```bash
+cd alzheimer_classifier && python app.py
+```
+
+Then open **http://127.0.0.1:5000**. Upload an MRI image and click:
+
+- **Model 1 (best_model.pt)** — calls `POST /api/predict/model1`
+- **Model 2 (timestamped)** — calls `POST /api/predict/model2`
+
+Both endpoints accept a multipart form with an image file (field name `image` or `file`). Response JSON: `predicted_class`, `confidence`, `probabilities`, `class_names`.
+
 ## Inference
 
 ```bash

@@ -1,3 +1,11 @@
+# Dataset (large - do not push)
+data/
+
+# Outputs: ignore everything except checkpoints (so only .pt models get pushed)
+outputs/*
+!outputs/checkpoints/
+!outputs/checkpoints/*
+
 # Python
 __pycache__/
 *.py[cod]

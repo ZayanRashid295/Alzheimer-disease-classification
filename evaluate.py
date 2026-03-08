@@ -179,8 +179,6 @@ def main():
         print("ROC-AUC (OvR, macro):", auc_ovr)
     except Exception as e:
         print("ROC-AUC skipped:", e)
-    except Exception as e:
-        print("ROC-AUC skipped:", e)
 
 
 if __name__ == "__main__":
