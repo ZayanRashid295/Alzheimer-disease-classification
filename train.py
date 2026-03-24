@@ -29,7 +29,6 @@ from data import (
 )
 from models import AlzheimerCNN
 from utils.metrics import compute_metrics, compute_class_weights
-from utils.losses import FocalLoss
 
 
 def set_seed(seed: int) -> None:
@@ -170,7 +169,6 @@ def main():
     parser.add_argument("--batch-size", type=int, default=config.BATCH_SIZE)
     parser.add_argument("--lr", type=float, default=config.LEARNING_RATE)
     parser.add_argument("--no-amp", action="store_true", help="Disable mixed precision")
-    parser.add_argument("--focal", action="store_true", help="Use Focal Loss")
     parser.add_argument("--seed", type=int, default=config.RANDOM_STATE)
     args = parser.parse_args()
 
@@ -218,13 +216,7 @@ def main():
     # Class weights from training set
     train_labels = [p[1] for p in train_pairs]
     class_weights = compute_class_weights(train_labels, num_classes).to(device)
-    if config.USE_FOCAL_LOSS or args.focal:
-        criterion = FocalLoss(
-            alpha=config.FOCAL_ALPHA if config.FOCAL_ALPHA is not None else class_weights,
-            gamma=config.FOCAL_GAMMA,
-        ).to(device)
-    else:
-        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     model = AlzheimerCNN(
         in_channels=in_channels,

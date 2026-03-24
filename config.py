@@ -30,27 +30,35 @@ IMAGE_SIZE = (224, 224)
 # Supported extensions when scanning dataset
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
 # Train / val / test split (stratified)
-TRAIN_RATIO = 0.70
-VAL_RATIO = 0.15
-TEST_RATIO = 0.15
+# Mentor-requested 80:20 setup mapped to train:val for stable training.
+TRAIN_RATIO = 0.80
+VAL_RATIO = 0.10
+TEST_RATIO = 0.10
 RANDOM_STATE = 42
 
 # ---------------------------------------------------------------------------
-# Augmentation (medical-safe)
+# Augmentation (medical-safe, actual augmentation pipeline controls)
 # ---------------------------------------------------------------------------
 AUGMENTATION = {
+    "use_random_resized_crop": True,
+    "crop_scale": (0.9, 1.0),
+    "crop_ratio": (0.95, 1.05),
     "rotation_degrees": 15,
     "affine_translate": (0.1, 0.1),  # fraction
     "affine_scale": (0.9, 1.1),
     "horizontal_flip_p": 0.5,
     "vertical_flip_p": 0.0,  # often disabled for brain MRI
+    "brightness": 0.10,
+    "contrast": 0.10,
+    "gaussian_blur_p": 0.15,
+    "random_erasing_p": 0.10,
 }
 
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
 CONV_FILTERS = [32, 64, 128, 256]
-FC_SIZES = [256, 128, 64]  # before num_classes
+FC_SIZES = [512, 256, 128, 64]  # before num_classes
 DROPOUT = (0.5, 0.3)  # after first two FC layers
 USE_SE_ATTENTION = True
 HE_INIT = True
@@ -58,7 +66,7 @@ HE_INIT = True
 # ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 NUM_WORKERS = 4
 PIN_MEMORY = True
 EPOCHS = 100
@@ -67,9 +75,6 @@ LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-4
 GRADIENT_CLIP_MAX_NORM = 1.0
 USE_AMP = True
-USE_FOCAL_LOSS = False
-FOCAL_ALPHA = None  # set per-class if using focal
-FOCAL_GAMMA = 2.0
 
 # ReduceLROnPlateau
 LR_PATIENCE = 5

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alzheimer MRI Classifier | Research Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf9f6;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #5c5c5c;
+      --accent: #0d6b5c;
+      --accent-hover: #0a5549;
+      --accent-soft: #e6f2f0;
+      --border: #e5e3de;
+      --error: #b91c1c;
+      --success: #0d6b5c;
+      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+    .section { padding: 3rem 0; }
+    .section-head {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 1.75rem;
+      font-weight: 400;
+      color: var(--text);
+      margin: 0 0 0.5rem 0;
+    }
+    .section-sub { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 1.5rem 0; }
+
+    /* Header */
+    header {
+      padding: 2rem 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header .container { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    .logo {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 1.35rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+    nav { display: flex; gap: 1.5rem; }
+    nav a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
+    nav a:hover { color: var(--accent); }
+
+    /* Hero */
+    .hero {
+      padding: 3rem 0 2.5rem;
+      text-align: center;
+    }
+    .hero h1 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 400;
+      margin: 0 0 0.75rem 0;
+      color: var(--text);
+    }
+    .hero p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    /* Upload */
+    .upload-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2rem;
+      text-align: center;
+      background: var(--bg);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-area.dragover { border-color: var(--accent); background: var(--accent-soft); }
+    .upload-area p { margin: 0 0 0.75rem 0; color: var(--text-muted); }
+    input[type="file"] { display: none; }
+    .btn {
+      display: inline-block;
+      padding: 0.65rem 1.25rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+    .btn-choose { background: var(--text); color: #fff; }
+    .btn-choose:hover { background: #333; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .btn-ghost:hover { background: var(--accent-soft); }
+    .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .preview { margin-top: 1rem; }
+    .preview img { max-width: 100%; max-height: 220px; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+    .model-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+    .model-row label { font-size: 0.9rem; color: var(--text-muted); }
+    select {
+      padding: 0.5rem 2rem 0.5rem 0.75rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-family: inherit;
+      font-size: 0.9rem;
+      background: var(--surface);
+    }
+    .actions { margin-top: 1.25rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .actions .btn-primary { min-width: 140px; }
+
+    /* Result */
+    .result-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.75rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .result-card.visible { display: block; }
+    .result-card h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 0 0 0.5rem 0; }
+    .result-class { font-family: 'Instrument Serif', Georgia, serif; font-size: 1.5rem; color: var(--accent); margin: 0; }
+    .result-confidence { font-size: 0.95rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .result-model { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; }
+    .probs { margin-top: 1.25rem; }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      gap: 0.75rem;
+    }
+    .prob-label { width: 160px; font-size: 0.9rem; flex-shrink: 0; }
+    .prob-bar {
+      flex: 1;
+      height: 18px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .prob-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #0d6b5c99);
+      border-radius: 4px;
+      transition: width 0.35s ease;
+    }
+    .prob-pct { width: 44px; text-align: right; font-size: 0.85rem; color: var(--text-muted); }
+    .explain-row { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+    .gradcam-placeholder {
+      margin-top: 0.75rem;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      max-width: 100%;
+      display: none;
+    }
+    .gradcam-placeholder.visible { display: block; }
+    .gradcam-placeholder img { width: 100%; height: auto; display: block; }
+    .loading-dots { display: inline-flex; gap: 4px; }
+    .loading-dots span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: bounce 0.6s ease infinite alternate; }
+    .loading-dots span:nth-child(2) { animation-delay: 0.1s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.2s; }
+    @keyframes bounce { to { transform: translateY(-4px); } }
+
+    .error-msg { color: var(--error); margin-top: 1rem; padding: 0.75rem; background: #fef2f2; border-radius: var(--radius-sm); display: none; }
+    .error-msg.visible { display: block; }
+
+    /* About */
+    .about-content { color: var(--text-muted); font-size: 0.95rem; }
+    .about-content h4 { color: var(--text); font-size: 1rem; margin: 1.25rem 0 0.5rem 0; }
+    .about-content ul { margin: 0.25rem 0; padding-left: 1.25rem; }
+    .about-content p { margin: 0.5rem 0; }
+    .disclaimer { background: var(--accent-soft); padding: 1rem; border-radius: var(--radius-sm); margin-top: 1.25rem; border-left: 4px solid var(--accent); }
+
+    footer {
+      padding: 2rem 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="#" class="logo">Alzheimer MRI Classifier</a>
+      <nav>
+        <a href="#try-it">Try it</a>
+        <a href="#about">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>MRI-based cognitive assessment</h1>
+        <p>Upload a brain MRI image to run a research-grade classifier. Supports multiple models and optional Grad-CAM explanation.</p>
+      </div>
+    </section>
+
+    <section class="section" id="try-it">
+      <div class="container">
+        <h2 class="section-head">Analyze an image</h2>
+        <p class="section-sub">Use a single MRI slice (e.g. axial). Any image format is accepted (JPG, PNG, WebP, GIF, BMP, TIFF, etc.).</p>
+
+        <div class="upload-card">
+          <div class="upload-area" id="uploadArea">
+            <p>Drop an image here or click to choose</p>
+            <button type="button" class="btn btn-choose" id="chooseBtn">Choose image</button>
+            <input type="file" id="fileInput" accept="image/*" />
+            <div class="preview" id="preview"></div>
+          </div>
+          <div class="model-row">
+            <label for="modelSelect">Model:</label>
+            <select id="modelSelect">
+              <option value="model1">Model 1 (primary)</option>
+              <option value="model2">Model 2 (alternate)</option>
+            </select>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="btnPredict" disabled>Analyze</button>
+          </div>
+        </div>
+
+        <div class="result-card" id="resultCard">
+          <h3>Prediction</h3>
+          <p class="result-class" id="resultClass">—</p>
+          <p class="result-confidence" id="resultConfidence"></p>
+          <p class="result-model" id="resultModel"></p>
+          <div class="probs" id="resultProbs"></div>
+          <div class="explain-row">
+            <button type="button" class="btn btn-ghost" id="btnExplain" disabled>Show explanation (Grad-CAM)</button>
+            <div class="gradcam-placeholder" id="gradcamPlaceholder">
+              <img id="gradcamImage" alt="Grad-CAM overlay" />
+            </div>
+          </div>
+        </div>
+        <div class="error-msg" id="errorEl"></div>
+      </div>
+    </section>
+
+    <section class="section" id="about">
+      <div class="container">
+        <h2 class="section-head">About this tool</h2>
+        <p class="section-sub">Research use only.</p>
+        <div class="about-content">
+          <p>This classifier predicts cognitive stage from brain MRI using a custom CNN trained on labeled datasets. Typical classes include <strong>NonDemented</strong>, <strong>VeryMildDemented</strong>, <strong>MildDemented</strong>, and <strong>ModerateDemented</strong> (exact names depend on the trained checkpoint).</p>
+          <h4>Grad-CAM</h4>
+          <p>“Show explanation” overlays a heatmap on your image indicating which regions the model focused on for its prediction. Red areas correspond to higher influence.</p>
+          <div class="disclaimer">
+            <strong>Disclaimer:</strong> This tool is for research and education only. It is not a medical device and must not be used for clinical diagnosis or treatment decisions. Always consult qualified healthcare providers.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">Alzheimer MRI Classifier — Research tool</div>
+  </footer>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const chooseBtn = document.getElementById('chooseBtn');
+    const preview = document.getElementById('preview');
+    const modelSelect = document.getElementById('modelSelect');
+    const btnPredict = document.getElementById('btnPredict');
+    const resultCard = document.getElementById('resultCard');
+    const resultClass = document.getElementById('resultClass');
+    const resultConfidence = document.getElementById('resultConfidence');
+    const resultModel = document.getElementById('resultModel');
+    const resultProbs = document.getElementById('resultProbs');
+    const btnExplain = document.getElementById('btnExplain');
+    const gradcamPlaceholder = document.getElementById('gradcamPlaceholder');
+    const gradcamImage = document.getElementById('gradcamImage');
+    const errorEl = document.getElementById('errorEl');
+
+    let selectedFile = null;
+    let lastModelKey = 'model1';
+
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      selectedFile = file;
+      preview.innerHTML = '<img src="' + URL.createObjectURL(file) + '" alt="Preview" />';
+      btnPredict.disabled = false;
+      btnExplain.disabled = true;
+      resultCard.classList.remove('visible');
+      gradcamPlaceholder.classList.remove('visible');
+      hideError();
+    }
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('visible');
+      resultCard.classList.remove('visible');
+    }
+
+    function hideError() {
+      errorEl.classList.remove('visible');
+    }
+
+    function showResult(data, modelLabel) {
+      hideError();
+      resultClass.textContent = data.predicted_class;
+      resultConfidence.textContent = 'Confidence: ' + (data.confidence * 100).toFixed(2) + '%';
+      resultModel.textContent = modelLabel;
+      resultProbs.innerHTML = '';
+      for (const [name, pct] of Object.entries(data.probabilities)) {
+        const p = (pct * 100).toFixed(1);
+        const row = document.createElement('div');
+        row.className = 'prob-row';
+        row.innerHTML = '<span class="prob-label">' + name + '</span><div class="prob-bar"><div class="prob-fill" style="width:' + p + '%"></div></div><span class="prob-pct">' + p + '%</span>';
+        resultProbs.appendChild(row);
+      }
+      resultCard.classList.add('visible');
+      btnExplain.disabled = false;
+      lastModelKey = modelSelect.value;
+      gradcamPlaceholder.classList.remove('visible');
+    }
+
+    function setPredictLoading(loading) {
+      btnPredict.disabled = loading;
+      btnPredict.textContent = loading ? '<span class="loading-dots"><span></span><span></span><span></span></span>' : 'Analyze';
+    }
+
+    function predict() {
+      if (!selectedFile) { showError('Please choose an image first.'); return; }
+      setPredictLoading(true);
+      const form = new FormData();
+      form.append('image', selectedFile);
+      form.append('model', modelSelect.value);
+      fetch('/api/predict', { method: 'POST', body: form })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { showError(data.error); return; }
+          const label = modelSelect.selectedOptions[0] ? modelSelect.selectedOptions[0].text : modelSelect.value;
+          showResult(data, label);
+        })
+        .catch(err => showError('Request failed: ' + err.message))
+        .finally(() => setPredictLoading(false));
+    }
+
+    btnPredict.addEventListener('click', predict);
+
+    btnExplain.addEventListener('click', () => {
+      if (!selectedFile) return;
+      btnExplain.disabled = true;
+      btnExplain.textContent = 'Loading…';
+      const form = new FormData();
+      form.append('image', selectedFile);
+      form.append('model', lastModelKey);
+      fetch('/api/gradcam', { method: 'POST', body: form })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { showError(data.error); btnExplain.disabled = false; btnExplain.textContent = 'Show explanation (Grad-CAM)'; return; }
+          gradcamImage.src = 'data:image/png;base64,' + data.image_base64;
+          gradcamPlaceholder.classList.add('visible');
+          btnExplain.textContent = 'Show explanation (Grad-CAM)';
+          btnExplain.disabled = false;
+        })
+        .catch(err => {
+          showError('Explanation failed: ' + err.message);
+          btnExplain.textContent = 'Show explanation (Grad-CAM)';
+          btnExplain.disabled = false;
+        });
+    });
+  </script>
+</body>
+</html>

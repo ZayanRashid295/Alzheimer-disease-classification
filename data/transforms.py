@@ -71,8 +71,19 @@ def get_train_transforms(
     channels: int = 3,
 ) -> transforms.Compose:
     """Training transforms: resize, medical-safe augmentation, to tensor, normalize."""
-    aug_list = [
-        transforms.Resize(image_size),
+    aug_list = []
+    if augmentation.get("use_random_resized_crop", False):
+        aug_list.append(
+            transforms.RandomResizedCrop(
+                image_size,
+                scale=augmentation.get("crop_scale", (0.9, 1.0)),
+                ratio=augmentation.get("crop_ratio", (0.95, 1.05)),
+            )
+        )
+    else:
+        aug_list.append(transforms.Resize(image_size))
+
+    aug_list.extend([
         transforms.RandomRotation(augmentation.get("rotation_degrees", 15)),
         transforms.RandomAffine(
             degrees=0,
@@ -80,15 +91,39 @@ def get_train_transforms(
             scale=augmentation.get("affine_scale", (0.9, 1.1)),
         ),
         transforms.RandomHorizontalFlip(p=augmentation.get("horizontal_flip_p", 0.5)),
-    ]
+    ])
     if augmentation.get("vertical_flip_p", 0.0) > 0:
         aug_list.append(
             transforms.RandomVerticalFlip(p=augmentation["vertical_flip_p"])
+        )
+    brightness = augmentation.get("brightness", 0.0)
+    contrast = augmentation.get("contrast", 0.0)
+    if brightness > 0 or contrast > 0:
+        aug_list.append(
+            transforms.ColorJitter(brightness=brightness, contrast=contrast)
+        )
+    blur_p = augmentation.get("gaussian_blur_p", 0.0)
+    if blur_p > 0:
+        aug_list.append(
+            transforms.RandomApply(
+                [transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))],
+                p=blur_p,
+            )
         )
     aug_list.extend([
         ToTensorMRI(channels=channels),
         NormalizeMRI(num_channels=channels),
     ])
+    erasing_p = augmentation.get("random_erasing_p", 0.0)
+    if erasing_p > 0:
+        aug_list.append(
+            transforms.RandomErasing(
+                p=erasing_p,
+                scale=(0.02, 0.08),
+                ratio=(0.3, 3.3),
+                value="random",
+            )
+        )
     return transforms.Compose(aug_list)
 
 
