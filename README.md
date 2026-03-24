@@ -1,101 +1,124 @@
-# Alzheimer MRI Multiclass Classifier
+# Alzheimer MRI Classifier (Training + Web App)
 
-Research-grade PyTorch pipeline for classifying brain MRI scans using the Alzheimer's Disease Multiclass Images Dataset. The pipeline is **data-driven**: class names, channel count (grayscale vs RGB), and class distribution are inferred from the dataset.
+PyTorch-based classifier for Alzheimer's stage prediction from MRI images, with a Flask web app for upload + prediction + Grad-CAM visualization.
 
-## Dataset
+## Current Scope
 
-The dataset lives **inside** the project under `data/` as a stratified 70/15/15 split:
+This repository currently keeps only:
 
-- **`data/train/<Class>/`** — training images (~30,800)
-- **`data/val/<Class>/`** — validation images (~6,600)
-- **`data/test/<Class>/`** — test images (~6,600)
+- Training pipeline
+- Core model/data/utils modules
+- Web app (`app.py` + `static/index.html`)
 
-Classes: `NonDemented`, `VeryMildDemented`, `MildDemented`, `ModerateDemented`. Images are JPEG, RGB. The pipeline discovers classes and paths from these folders; no separate `combined_images` is needed.
+Older evaluation/inference helper scripts were intentionally removed during cleanup.
 
-To recreate the split from a single `combined_images/` folder (one subfolder per class), run once:
+## Dataset Layout
 
-```bash
-python3 alzheimer_classifier/scripts/move_dataset_to_split.py
-```
-(Expects `combined_images/` next to the `alzheimer_classifier` folder.)
+Training uses the split under `data/`:
+
+- `data/train/<Class>/`
+- `data/val/<Class>/`
+- `data/test/<Class>/`
+
+Current configured split ratios in `config.py`:
+
+- `TRAIN_RATIO = 0.80`
+- `VAL_RATIO = 0.20`
+- `TEST_RATIO = 0.00`
+
+Note: training still expects a validation set for checkpointing and early stopping.
 
 ## Project Structure
 
-```
+```text
 alzheimer_classifier/
-├── data/           # Dataset, stratified splits, transforms
-├── models/         # Custom CNN (4 conv blocks, optional SE, GAP, FC)
-├── utils/          # Metrics, Grad-CAM, Focal Loss
-├── train.py        # Training with AMP, early stopping, TensorBoard
-├── evaluate.py     # Test-set metrics, confusion matrix, ROC-AUC
-├── inference.py    # Single-image prediction + optional Grad-CAM
-├── config.py       # Paths and hyperparameters
-├── requirements.txt
-└── README.md
+├── app.py
+├── config.py
+├── train.py
+├── static/
+│   └── index.html
+├── data/
+│   ├── __init__.py
+│   ├── dataset.py
+│   ├── splits.py
+│   ├── transforms.py
+│   ├── train/
+│   ├── val/
+│   └── test/
+├── models/
+│   ├── __init__.py
+│   └── alzheimer_cnn.py
+├── utils/
+│   ├── __init__.py
+│   ├── metrics.py
+│   └── gradcam.py
+├── outputs/
+└── requirements.txt
 ```
 
 ## Setup
 
 ```bash
-cd alzheimer_classifier
-pip install -r requirements.txt
+cd "/Users/zayanrashidrana/Documents/Alzheimer disease/alzheimer_classifier"
+python3 -m pip install -r requirements.txt
 ```
 
 ## Training
 
-From the **project root** (parent of `alzheimer_classifier`):
-
 ```bash
-python alzheimer_classifier/train.py --data-root /path/to/combined_images
+python3 train.py
 ```
 
-Or from inside `alzheimer_classifier`:
+Useful options:
 
-```bash
-python train.py
-```
+- `--data-root` (default: `config.DATA_ROOT`)
+- `--epochs`
+- `--batch-size`
+- `--lr`
+- `--no-amp`
+- `--seed`
 
-Options: `--epochs`, `--batch-size`, `--lr`, `--no-amp`, `--focal` (Focal Loss), `--seed`.
+Default key training settings:
+
+- `BATCH_SIZE = 16`
+- Class-weighted `CrossEntropyLoss`
+- Early stopping enabled
+- AMP enabled when CUDA is available
+
+Outputs:
 
 - Best checkpoint: `outputs/checkpoints/best_model.pt`
-- TensorBoard: `tensorboard --logdir outputs/logs`
+- Timestamped best checkpoint: `outputs/checkpoints/best_model_<timestamp>.pt`
+- TensorBoard logs: `outputs/logs/`
 
-## Evaluation
+## Web App
 
-```bash
-python alzheimer_classifier/evaluate.py --checkpoint outputs/checkpoints/best_model.pt
-```
-
-Writes to `outputs/eval_plots/`: confusion matrix, ROC (OvR), classification report.
-
-## Inference
+Run:
 
 ```bash
-python alzheimer_classifier/inference.py path/to/mri.jpg --checkpoint outputs/checkpoints/best_model.pt
+python3 app.py
 ```
 
-Optional Grad-CAM overlay:
+Open:
 
-```bash
-python alzheimer_classifier/inference.py path/to/mri.jpg --gradcam outputs/inference/gradcam.png
-```
+- `http://127.0.0.1:5000`
 
-## Configuration
+Available API routes:
 
-Edit `config.py` for:
+- `GET /api/health`
+- `GET /api/models`
+- `POST /api/predict`
+- `POST /api/gradcam`
 
-- Paths: `DATA_ROOT`, `CHECKPOINT_DIR`, etc.
-- Data: `IMAGE_SIZE`, `TRAIN_RATIO`, `VAL_RATIO`, `TEST_RATIO`
-- Model: `CONV_FILTERS`, `USE_SE_ATTENTION`, `DROPOUT`
-- Training: `BATCH_SIZE`, `LEARNING_RATE`, `USE_AMP`, `USE_FOCAL_LOSS`, `EARLY_STOPPING_PATIENCE`
+## Configuration Notes
 
-## Design Notes
+Important knobs in `config.py`:
 
-- **Channels**: Set `INPUT_CHANNELS` in config to `1` or `3`, or leave `None` to auto-detect from the first image.
-- **Class weights**: CrossEntropyLoss (and optional Focal Loss) use inverse-frequency weights from the training set.
-- **Augmentation**: Rotation ≤15°, small affine translate/scale, horizontal flip; no vertical flip by default (brain MRI).
-- **Grad-CAM**: Uses the last conv block of the custom CNN; overlay saved as JPEG.
+- Data/image: `IMAGE_SIZE`, `IMAGE_EXTENSIONS`, split ratios
+- Model: `CONV_FILTERS`, `FC_SIZES`, `DROPOUT`, `USE_SE_ATTENTION`
+- Training: `BATCH_SIZE`, `EPOCHS`, `LEARNING_RATE`, `WEIGHT_DECAY`
+- Augmentation: random resized crop, affine, rotation, flips, jitter, blur, erasing
 
 ## License
 
-Use and adapt as needed for research or internal use.
+Use and adapt for research/internal use.
