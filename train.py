@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler
 
 # Add project root for imports when run as script
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -116,7 +116,7 @@ def train_one_epoch(
         x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
         optimizer.zero_grad()
         if use_amp and scaler is not None:
-            with autocast():
+            with torch.amp.autocast("cuda"):
                 logits = model(x)
                 loss = criterion(logits, y)
             scaler.scale(loss).backward()
@@ -204,6 +204,8 @@ def main():
         len(val_pairs),
         len(test_pairs),
     )
+    if len(val_pairs) == 0:
+        raise ValueError("Validation split is empty. Set VAL_RATIO > 0 for stable training.")
 
     train_loader, val_loader = build_dataloaders(
         args.data_root,
@@ -302,6 +304,9 @@ def main():
                 "class_names": class_names,
                 "in_channels": in_channels,
                 "num_classes": num_classes,
+                "conv_filters": config.CONV_FILTERS,
+                "fc_sizes": config.FC_SIZES,
+                "use_se": config.USE_SE_ATTENTION,
             }
             torch.save(ckpt, config.CHECKPOINT_DIR / "best_model.pt")
             torch.save(ckpt, config.CHECKPOINT_DIR / f"best_model_{timestamp}.pt")

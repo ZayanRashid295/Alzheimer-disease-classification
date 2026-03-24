@@ -41,16 +41,36 @@ def load_model(ckpt_path: Path):
     class_names = ckpt["class_names"]
     in_channels = int(ckpt["in_channels"])
     num_classes = int(ckpt["num_classes"])
+    state_dict = ckpt["model_state_dict"]
+
+    # Prefer architecture metadata saved in checkpoint; fall back to current config.
+    conv_filters = ckpt.get("conv_filters", config.CONV_FILTERS)
+    use_se = ckpt.get("use_se", config.USE_SE_ATTENTION)
+
+    # Infer fc_sizes from checkpoint weights so older/newer checkpoints both load.
+    fc_weight_keys = sorted(
+        (
+            k for k, v in state_dict.items()
+            if k.startswith("fc.") and k.endswith(".weight") and getattr(v, "ndim", 0) == 2
+        ),
+        key=lambda k: int(k.split(".")[1]),
+    )
+    if len(fc_weight_keys) >= 2:
+        # All FC layers except last classification layer are hidden sizes.
+        fc_sizes = [int(state_dict[k].shape[0]) for k in fc_weight_keys[:-1]]
+    else:
+        fc_sizes = ckpt.get("fc_sizes", config.FC_SIZES)
+
     model = AlzheimerCNN(
         in_channels=in_channels,
         num_classes=num_classes,
-        conv_filters=config.CONV_FILTERS,
-        fc_sizes=config.FC_SIZES,
+        conv_filters=conv_filters,
+        fc_sizes=fc_sizes,
         dropout=(0.0, 0.0),
-        use_se=config.USE_SE_ATTENTION,
+        use_se=use_se,
         he_init=False,
     )
-    model.load_state_dict(ckpt["model_state_dict"])
+    model.load_state_dict(state_dict)
     model = model.to(DEVICE)
     model.eval()
     return model, class_names, in_channels

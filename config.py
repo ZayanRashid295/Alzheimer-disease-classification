@@ -40,7 +40,7 @@ RANDOM_STATE = 42
 # Augmentation (medical-safe, actual augmentation pipeline controls)
 # ---------------------------------------------------------------------------
 AUGMENTATION = {
-    "use_random_resized_crop": True,
+    "use_random_resized_crop": False,
     "crop_scale": (0.9, 1.0),
     "crop_ratio": (0.95, 1.05),
     "rotation_degrees": 15,
@@ -48,18 +48,18 @@ AUGMENTATION = {
     "affine_scale": (0.9, 1.1),
     "horizontal_flip_p": 0.5,
     "vertical_flip_p": 0.0,  # often disabled for brain MRI
-    "brightness": 0.10,
-    "contrast": 0.10,
-    "gaussian_blur_p": 0.15,
-    "random_erasing_p": 0.10,
+    "brightness": 0.00,
+    "contrast": 0.00,
+    "gaussian_blur_p": 0.00,
+    "random_erasing_p": 0.00,
 }
 
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
 CONV_FILTERS = [32, 64, 128, 256]
-FC_SIZES = [512, 256, 128, 64]  # before num_classes
-DROPOUT = (0.5, 0.3)  # after first two FC layers
+FC_SIZES = [256, 128, 64]  # before num_classes
+DROPOUT = (0.4, 0.25)  # after first two FC layers
 USE_SE_ATTENTION = True
 HE_INIT = True
 
@@ -67,11 +67,11 @@ HE_INIT = True
 # Training
 # ---------------------------------------------------------------------------
 BATCH_SIZE = 16
-NUM_WORKERS = 4
+NUM_WORKERS = 2
 PIN_MEMORY = True
 EPOCHS = 100
 EARLY_STOPPING_PATIENCE = 12
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 3e-4
 WEIGHT_DECAY = 1e-4
 GRADIENT_CLIP_MAX_NORM = 1.0
 USE_AMP = True
