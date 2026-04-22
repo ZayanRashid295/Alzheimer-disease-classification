@@ -170,6 +170,8 @@ def main():
     parser.add_argument("--lr", type=float, default=config.LEARNING_RATE)
     parser.add_argument("--no-amp", action="store_true", help="Disable mixed precision")
     parser.add_argument("--seed", type=int, default=config.RANDOM_STATE)
+    parser.add_argument("--resume", type=Path, help="Path to checkpoint to resume from")
+    parser.add_argument("--freeze-backbone", action="store_true", help="Freeze conv layers (transfer learning)")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -229,6 +231,42 @@ def main():
         use_se=config.USE_SE_ATTENTION,
         he_init=config.HE_INIT,
     ).to(device)
+
+    # Load checkpoint if provided
+    if args.resume:
+        if not args.resume.exists():
+            logger.error("Checkpoint not found: %s", args.resume)
+            sys.exit(1)
+        
+        logger.info("Loading checkpoint for fine-tuning: %s", args.resume)
+        ckpt = torch.load(args.resume, map_location=device)
+        
+        # Architecture check/update for safety
+        ckpt_num_classes = ckpt.get("num_classes", num_classes)
+        
+        # Load state dict
+        state_dict = ckpt["model_state_dict"]
+        
+        if ckpt_num_classes != num_classes:
+            logger.info("Class mismatch: Checkpoint has %d classes, current dataset has %d. Replacing head.", ckpt_num_classes, num_classes)
+            # Remove the last layer from state_dict to allow partial load
+            # In AlzheimerCNN, the last layer is the last element of self.fc
+            keys_to_remove = [k for k in state_dict.keys() if k.startswith("fc.") and k.endswith((".weight", ".bias"))]
+            # Specifically find the last Linear layer in fc. It's usually the last 2 parameters if it's Linear -> ReLU -> ... -> Linear
+            # But more robustly, we just filter by the very last suffix index if we know the structure.
+            # In AlzheimerCNN._build_fc_layers: self.fc has (len(fc_sizes)*3 + 1) layers.
+            # We'll just use strict=False loading which is safer for head replacement.
+            model.load_state_dict(state_dict, strict=False)
+        else:
+            model.load_state_dict(state_dict)
+            
+        if args.freeze_backbone:
+            logger.info("Freezing conv blocks for transfer learning...")
+            for param in model.conv_blocks.parameters():
+                param.requires_grad = False
+            if hasattr(model, "se") and model.se is not None:
+                for param in model.se.parameters():
+                    param.requires_grad = False
     n_params = sum(p.numel() for p in model.parameters())
     n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info("Model parameters: %d (trainable: %d)", n_params, n_trainable)

@@ -251,3 +251,4 @@ if __name__ == "__main__":
         print("No models loaded. Exiting.")
         sys.exit(1)
     app.run(host="0.0.0.0", port=5000, debug=True)
+
